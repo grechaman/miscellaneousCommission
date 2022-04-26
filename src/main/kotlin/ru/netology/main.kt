@@ -1,99 +1,74 @@
 package ru.netology
 
-import java.util.*
 import kotlin.math.roundToInt
 
-val scanner = Scanner(System.`in`)
-var amountThisMonth = 0.0
-var amounthTransferVKpay = 0.0
+const val maxSumTransferMonthCard = 600_000_00
 
 fun conversionInRub(money: Double) = Math.round(money) / 100.0
 
-fun conversion(rub: Int, kopeika: Int) = rub * 100 + kopeika
+fun conversion(rub: Int) = rub * 100
 
-fun printTransferSuccess(money: Double, way: String = "VKpay") {
-    when (way) {
-        "VKpay" -> println("С вашего счета VK Pay списано ${conversionInRub(money)} рублей")
-        "карта" -> println("С вашей карты списано ${conversionInRub(money)} рублей")
-    }
-}
-
-fun vkPay(money: Int) {
+fun vkPay(money: Int, amountMounthTransfers: Int = 0): Boolean {
     val maxSumTransferOneTimeVKpay = 1500000
     val maxSumTransferThisMonthVKpay = 4000000
-    if (money <= maxSumTransferOneTimeVKpay) {
-        if (amounthTransferVKpay < maxSumTransferThisMonthVKpay) {
-            amountThisMonth += money
-            amounthTransferVKpay += money
-            printTransferSuccess(money.toDouble())
-        } else println("Месячный лимит переводов исчерпан")
-    } else println("Сумма перевода превышает допустимую")
+    return if (money <= maxSumTransferOneTimeVKpay) {
+        amountMounthTransfers < maxSumTransferThisMonthVKpay
+    } else false
 }
 
-fun maestroMasterCard(money: Int) {
-    amountThisMonth += money
+fun checkMouthLimitCard(amountMounthTransfers: Int): Boolean = amountMounthTransfers*100 < maxSumTransferMonthCard
+
+fun maestroMasterCard(money: Int): Int {
     val maxSumTransfer = 7500000
-    var sumTransfer = 0.0
-    val percentCommission = 1.006
+    val percentCommission = 0.006
     val commissionAdd = 2000
-    if (money < maxSumTransfer) {
-        sumTransfer += money
-        printTransferSuccess(sumTransfer, "карта")
-    } else {
-        sumTransfer += money * percentCommission + commissionAdd
-        printTransferSuccess(sumTransfer, "карта")
+    return when {
+        money < maxSumTransfer -> 0
+        else -> (money * percentCommission + commissionAdd).roundToInt()
     }
 }
 
-fun visaMirCard(money: Int) {
-    amountThisMonth += money
+fun visaMirCard(money: Int): Int {
     val minimumCommission = 3500.0
     val percentCommission = 0.0075
     val commission = money * percentCommission
-    val sumTransfer =
-        if (commission > minimumCommission) money + commission else money + minimumCommission
-    printTransferSuccess(sumTransfer, "карта")
+    return if (commission > minimumCommission) commission.roundToInt() else minimumCommission.roundToInt()
 }
 
-fun selectionMethodPayment(method: Int = 1, amountMouth: Int = 0, money: Int) {
-    when (method) {
-        1 -> vkPay(money)
-        2 -> maestroMasterCard(money)
-        3 -> visaMirCard(money)
-        else -> println("Выберите верный вариант")
+fun printConsoleTransferSuccessful(money: Int): String =
+    "Операция выполнена успешно, комиссия составила ${conversionInRub(money.toDouble())} рублей."
+
+fun printConsoleTransferSuccessfulNonCommission(): String = "Операция выполнена успешно."
+
+fun printConsoleTransferFail(): String = "Операция не выполнена."
+
+fun operationCalculateCommission(
+    methodPayment: String = "vkPay",
+    amountMounthTransfers: Int = 0,
+    money: Int
+): String {
+    val sumTransfer = conversion(money)
+    val commission = when (methodPayment) {
+        "vkPay" -> if (vkPay(money, amountMounthTransfers)) sumTransfer else false
+        "maestroMasterCard" -> if (checkMouthLimitCard(amountMounthTransfers)) maestroMasterCard(sumTransfer) else false
+        "visaMirCard" -> if (checkMouthLimitCard(amountMounthTransfers)) visaMirCard(sumTransfer) else false
+        else -> throw IllegalArgumentException("Недопустимое значение")
+    }
+    return when (methodPayment) {
+        "vkPay" -> if (commission is Int) printConsoleTransferSuccessfulNonCommission() else printConsoleTransferFail()
+        "maestroMasterCard" -> if (commission is Int) {
+            if (commission == 0) printConsoleTransferSuccessfulNonCommission() else
+                printConsoleTransferSuccessful(commission)
+        } else printConsoleTransferFail()
+        "visaMirCard" -> if (commission is Int) printConsoleTransferSuccessful(commission) else printConsoleTransferFail()
+        else -> throw IllegalArgumentException("Недопустимое значение")
     }
 }
 
 fun main() {
-    while (true) {
-        println()
-        print(
-            "Введите сумму перевода:\n" +
-                    "Рублей:"
-        )
-        val rubley = scanner.nextInt()
-        print("Копеек:")
-        val kopeiki = scanner.nextInt()
-        println(
-            "Выберите способ оплаты:\n" +
-                    "1. VK Pay\n" +
-                    "2. Mastercard или Maestro\n" +
-                    "3. Visa или Мир\n" +
-                    if (amountThisMonth > 0) "В этом месяце вы совершили переводы на сумму: " +
-                            "${conversionInRub(amountThisMonth)
-                    } рублей" else " "
-        )
-        val input = scanner.nextInt()
-        val amount = conversion(rubley, kopeiki)
-        selectionMethodPayment(input, amountThisMonth.roundToInt(), amount)
-
-    }
-}
-
-//fun choiseMethodPaymeent(method: String = "VKpay", amountThisMonth: Int = 0, money: Int){
-//    when (method){
-//        "VKpay" -> vkPay(money,amountThisMonth)
-//        "карта" -> Card(money,amountThisMonth)
-//    }
-//    choiseMethodPaymeent(money=1500)
+//    println(operationCalculateCommission("visaMirCar", money = 300))
+    println(operationCalculateCommission(money = 1500))
+    println(operationCalculateCommission("maestroMasterCard", 700000, 700))
+    println(operationCalculateCommission("visaMirCard", money = 300))
+    println(operationCalculateCommission("maestroMasterCard", 700000, 76000))
 }
